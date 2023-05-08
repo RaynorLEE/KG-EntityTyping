@@ -4,6 +4,8 @@ import logging
 import os
 import numpy as np
 
+from collections import defaultdict
+
 def set_logger(args):
     if not os.path.exists(os.path.join(args['save_dir'], args['save_path'])):
         os.makedirs(os.path.join(os.getcwd(), args['save_dir'], args['save_path']))
@@ -32,22 +34,33 @@ def read_id(path):
             tmp[e] = int(t)
     return tmp
 
-def read_entity_wiki(path, e2id):
+def read_entity_wiki(path, e2id, mode='hybrid'):
     json_file = open(path)
     entity_wiki = json.load(json_file)
-    entity_descriptions = []
     entity_text = []
+    entity_label = []
     id2e = {}
     for e, eid in e2id.items():
         id2e[eid] = e
     for eid in range(len(id2e)):
-        if entity_wiki[id2e[eid]]['description'] is not None:
-            entity_descriptions.append(entity_wiki[id2e[eid]]['description'])
+        if mode == 'hybrid':
+            if entity_wiki[id2e[eid]]['description'] is not None and entity_wiki[id2e[eid]]['description'] != '':
+                entity_text.append(
+                    entity_wiki[id2e[eid]]['label'] + ', ' + entity_wiki[id2e[eid]]['description'])
+            else:
+                entity_text.append(entity_wiki[id2e[eid]]['label'])
+        elif mode == 'desc':
+            if entity_wiki[id2e[eid]]['description'] is not None and entity_wiki[id2e[eid]]['description'] != '':
+                entity_text.append(entity_wiki[id2e[eid]]['description'])
+            else:
+                entity_text.append(entity_wiki[id2e[eid]]['label'])
+        elif mode == 'label':
+            entity_text.append(entity_wiki[id2e[eid]]['label'])
         else:
-            entity_descriptions.append(entity_wiki[id2e[eid]]['label'])
-        entity_text.append(entity_wiki[id2e[eid]]['label'])
+            entity_text.append(entity_wiki[id2e[eid]]['label'])
+        entity_label.append(entity_wiki[id2e[eid]]['label'])
     json_file.close()
-    return np.array(entity_descriptions), np.array(entity_text)
+    return np.array(entity_text), np.array(entity_label)
 
 
 def read_rel_context(path, r2id):
@@ -77,6 +90,17 @@ def read_type_context(path, t2id):
     for tid in range(len(id2t)):
         type_description.append(type_description_mapping[id2t[tid]])
     return np.array(type_description)
+
+def load_type_instances(args, file_name, e2id, t2id):
+    et_path = args["data_dir"] + '/' + args["dataset"] + '/' + file_name
+    t2e = defaultdict(list)
+    with open(et_path, 'r', encoding='utf-8') as f:
+        for line in f.readlines():
+            e, t = line.strip().split('\t')
+            eid = e2id[e]
+            tid = t2id[t]
+            t2e[tid].append(eid)
+    return dict(t2e)
 
 
 def load_type_labels(paths, e2id, t2id):

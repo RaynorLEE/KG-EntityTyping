@@ -1,6 +1,7 @@
 import argparse
+
 from utils import *
-from TET import TET
+#   from TET import TET
 from MMET import MMET
 from dataloader import ETDataset
 from torch.utils.data import DataLoader
@@ -17,9 +18,10 @@ def main(args):
     r2id = read_id(os.path.join(data_path, 'relations.tsv'))
     t2id = read_id(os.path.join(data_path, 'types.tsv'))
     c2id = read_id(os.path.join(data_path, 'clusters.tsv'))
-    e2desc, e2text = read_entity_wiki(os.path.join(data_path, 'entity_wiki.json'), e2id)
+    e2text, e2label = read_entity_wiki(os.path.join(data_path, 'entity_wiki.json'), e2id, args['semantic'])
     r2text = read_rel_context(os.path.join(data_path, 'relation2text.txt'), r2id)
     t2desc = read_type_context(os.path.join(data_path, 'hier_type_desc.txt'), t2id)
+    t2ent = load_type_instances(args, "ET_train.txt", e2id, t2id)
     num_entities = len(e2id)
     num_rels = len(r2id)
     num_types = len(t2id)
@@ -30,7 +32,6 @@ def main(args):
     train_dataset = ETDataset(args, "LMET_train.txt", e2id, r2id, t2id, c2id, 'train')
     valid_dataset = ETDataset(args, "LMET_valid.txt", e2id, r2id, t2id, c2id, 'valid')
     test_dataset = ETDataset(args, "LMET_test.txt", e2id, r2id, t2id, c2id, 'test')
-
     train_dataloader = DataLoader(train_dataset,
                                   batch_size=args['train_batch_size'],
                                   shuffle=True,
@@ -83,16 +84,16 @@ def main(args):
             rel = rels[0]
             tail = tails[0]
             if rel < num_rels:
-                kg_sequence = ['[CLS] ' + '[MASK]' + ' [SEP] ' + r2text[int(rel) % num_rels] + ' [SEP] ' + e2desc[int(tail)] + ' [SEP]']
+                kg_sequence = ['[CLS] ' + '[MASK]' + ' [SEP] ' + r2text[int(rel) % num_rels] + ' [SEP] ' + e2text[int(tail)] + ' [SEP]']
             else:
-                kg_sequence = ['[CLS] ' + e2desc[int(tail)] + ' [SEP] ' + r2text[int(rel) % num_rels] + ' [SEP] ' + '[MASK]' + ' [SEP]']
+                kg_sequence = ['[CLS] ' + e2text[int(tail)] + ' [SEP] ' + r2text[int(rel) % num_rels] + ' [SEP] ' + '[MASK]' + ' [SEP]']
         else:
             #   if rel < num_rels, then mask head, and keep rel and tail
             head_context[rels < num_rels] = '[MASK]'
-            tail_context[rels < num_rels] = e2desc[np.array(tails)][rels < num_rels]
+            tail_context[rels < num_rels] = e2text[np.array(tails)][rels < num_rels]
             rel_context = r2text[np.array(rels) % num_rels]
             #   if rel >= num_rels, then mask tail, keep rel and move tail entity to head
-            head_context[rels >= num_rels] = e2desc[np.array(tails)][rels >= num_rels]
+            head_context[rels >= num_rels] = e2text[np.array(tails)][rels >= num_rels]
             tail_context[rels >= num_rels] = '[MASK]'
             #   concatenate heads, rels, tails with [CLS] token and [SEP] separator
             cls_arr = np.array(['[CLS] '], dtype=str).repeat(curr_batch_size * num_neighbors_sampled)
@@ -108,6 +109,27 @@ def main(args):
         #   kg_seq_tokens = tokenizer("Hello, my dog is cute", return_tensors="pt")
         return kg_seq_tokens, kg_mask_index
 
+    # def tokenize_known_type(sample_et_content):
+    #     curr_batch_size = sample_et_content.shape[0]
+    #     num_known_types_sampled = sample_et_content.shape[1]
+    #     #   load hierarchical descriptions of known types of an entity from sample_et_content
+    #     known_types = sample_et_content[:, :, 2]
+    #     known_types = known_types.reshape(curr_batch_size * num_known_types_sampled)
+    #     known_types = known_types - num_entities
+    #     known_types_context = np.empty(curr_batch_size * num_known_types_sampled, dtype=object)
+    #     if known_types.shape[0] == 1:
+    #         known_type = known_types[0]
+    #         et_sequence = ['[CLS] [SEP] [MASK] [SEP] has type [SEP] ' + t2desc[int(known_type)] + ' [SEP]']
+    #     else:
+    #         start_arr = np.array(['[CLS] [SEP] [MASK] [SEP] has type [SEP] '], dtype=str).repeat(curr_batch_size * num_known_types_sampled)
+    #         end_arr = np.array([' [SEP]'], dtype=str).repeat(curr_batch_size * num_known_types_sampled)
+    #         known_types_context[known_types >= 0] = t2desc[np.array(known_types)]
+    #         et_sequence = start_arr + known_types_context + end_arr
+    #         et_sequence = et_sequence.tolist()
+    #     et_seq_tokens = tokenizer(et_sequence, add_special_tokens=False, padding=True, return_tensors='pt')
+    #     et_mask_index = (et_seq_tokens.input_ids == tokenizer.mask_token_id).nonzero(as_tuple=True)
+    #     return et_seq_tokens, et_mask_index
+
     def tokenize_known_type(sample_et_content):
         curr_batch_size = sample_et_content.shape[0]
         num_known_types_sampled = sample_et_content.shape[1]
@@ -115,6 +137,9 @@ def main(args):
         known_types = sample_et_content[:, :, 2]
         known_types = known_types.reshape(curr_batch_size * num_known_types_sampled)
         known_types = known_types - num_entities
+        known_type_instances = t2ent[known_types]
+
+
         known_types_context = np.empty(curr_batch_size * num_known_types_sampled, dtype=object)
         if known_types.shape[0] == 1:
             known_type = known_types[0]
@@ -129,6 +154,17 @@ def main(args):
         et_mask_index = (et_seq_tokens.input_ids == tokenizer.mask_token_id).nonzero(as_tuple=True)
         return et_seq_tokens, et_mask_index
 
+    def tokenize_target_entity(entities):
+        curr_batch_size = entities.shape[0]
+        if entities.shape[0] == 1:
+            ent = entities[0]
+            ent_sequence = [e2text[int(ent)]]
+        else:
+            ent_sequence = e2text[np.array(entities)]
+            ent_sequence = ent_sequence.tolist()
+        ent_seq_tokens = tokenizer(ent_sequence, add_special_tokens=True, padding=True, return_tensors='pt')
+        return ent_seq_tokens
+
     for epoch in range(args['max_epoch']):
         log = []
         iter = 0
@@ -137,14 +173,15 @@ def main(args):
             bs = sample_kg_content.shape[0]
             kg_seq_tokens, kg_mask_index = tokenize_with_mask(sample_kg_content)
             et_seq_tokens, et_mask_index = tokenize_known_type(sample_et_content)
+            ent_seq_tokens = tokenize_target_entity(gt_ent)
             type_label = train_type_label[gt_ent, :]
             if use_cuda:
                 kg_seq_tokens = kg_seq_tokens.to(device)
                 et_seq_tokens = et_seq_tokens.to(device)
+                ent_seq_tokens = ent_seq_tokens.to(device)
                 #   kg_mask_index = kg_mask_index.to(device)
                 type_label = type_label.to(device)
-            type_predict = model(kg_seq_tokens, kg_mask_index, et_seq_tokens, bs)
-
+            type_predict, moco_logits, moco_labels = model(kg_seq_tokens, kg_mask_index, et_seq_tokens, et_mask_index, ent_seq_tokens, bs, mode='train')
             # if use_cuda:
             #     sample_et_content = sample_et_content.cuda()
             #     sample_kg_content = sample_kg_content.cuda()
@@ -160,17 +197,29 @@ def main(args):
                 type_loss = type_pos_loss + type_neg_loss
             elif args['loss'] == 'SFNA':
                 type_pos_loss, type_neg_loss = slight_fna_loss(type_predict, type_label, args['beta'])
+                # if model.warm_up is True:
+                #     type_loss = type_pos_loss + type_neg_loss
+                #     moco_loss = torch.tensor(0)
+                # else:
+                #     moco_criterion = torch.nn.CrossEntropyLoss()
+                #     moco_loss = moco_criterion(moco_logits, moco_labels)
+                #     type_loss = type_pos_loss + type_neg_loss + 1.0 * moco_loss
                 type_loss = type_pos_loss + type_neg_loss
+                moco_loss = torch.tensor(0)
             else:
                 raise ValueError('loss %s is not defined' % args['loss'])
+
 
             log.append({
                 "loss": type_loss.item(),
                 "pos_loss": type_pos_loss.item(),
                 "neg_loss": type_neg_loss.item(),
+                "moco_loss": moco_loss.item(),
             })
             # logging.debug('epoch %d, iter %d: loss: %f\tpos_loss: %f\tneg_loss: %f' %
             #               (epoch, iter, type_loss.item(), type_pos_loss.item(), type_neg_loss.item()))
+            # logging.debug('epoch %d, iter %d: loss: %f\tpos_loss: %f\tneg_loss: %f\tmoco_loss: %f' %
+            #               (epoch, iter, type_loss.item(), type_pos_loss.item(), type_neg_loss.item(), moco_loss.item()))
 
             optimizer.zero_grad()
             type_loss.requires_grad_(True)
@@ -189,8 +238,11 @@ def main(args):
         avg_type_loss = sum([_['loss'] for _ in log]) / len(log)
         avg_type_pos_loss = sum([_['pos_loss'] for _ in log]) / len(log)
         avg_type_neg_loss = sum([_['neg_loss'] for _ in log]) / len(log)
-        logging.debug('epoch %d: loss: %f\tpos_loss: %f\tneg_loss: %f' %
-                      (epoch, avg_type_loss, avg_type_pos_loss, avg_type_neg_loss))
+        # logging.debug('epoch %d: loss: %f\tpos_loss: %f\tneg_loss: %f' %
+        #               (epoch, avg_type_loss, avg_type_pos_loss, avg_type_neg_loss))
+        avg_moco_loss = sum([_['moco_loss'] for _ in log]) / len(log)
+        logging.debug('epoch %d: loss: %f\tpos_loss: %f\tneg_loss: %f\tmoco_loss: %f' %
+                      (epoch, avg_type_loss, avg_type_pos_loss, avg_type_neg_loss, avg_moco_loss))
 
         if epoch != 0 and epoch % args['valid_epoch'] == 0:
         #   if epoch % args['valid_epoch'] == 0:
@@ -201,12 +253,12 @@ def main(args):
                 for sample_et_content, sample_kg_content, gt_ent in valid_dataloader:
                     bs = sample_kg_content.shape[0]
                     kg_seq_tokens, kg_mask_index = tokenize_with_mask(sample_kg_content)
-                    et_seq_tokens = tokenize_known_type(sample_et_content)
+                    et_seq_tokens, et_mask_index = tokenize_known_type(sample_et_content)
                     if use_cuda:
                         kg_seq_tokens = kg_seq_tokens.to(device)
                         #   kg_mask_index = kg_mask_index.to(device)
                         et_seq_tokens = et_seq_tokens.to(device)
-                    predict[gt_ent] = model(kg_seq_tokens, kg_mask_index, et_seq_tokens, bs).cpu().half()
+                    predict[gt_ent] = model(kg_seq_tokens, kg_mask_index, et_seq_tokens, et_mask_index, ent_seq_tokens, bs, mode='eval').cpu().half()
                     # if use_cuda:
                     #     sample_et_content = sample_et_content.cuda()
                     #     sample_kg_content = sample_kg_content.cuda()
@@ -218,12 +270,12 @@ def main(args):
                 for sample_et_content, sample_kg_content, gt_ent in test_dataloader:
                     bs = sample_kg_content.shape[0]
                     kg_seq_tokens, kg_mask_index = tokenize_with_mask(sample_kg_content)
-                    et_seq_tokens = tokenize_known_type(sample_et_content)
+                    et_seq_tokens, et_mask_index = tokenize_known_type(sample_et_content)
                     if use_cuda:
                         kg_seq_tokens = kg_seq_tokens.to(device)
                         #   kg_mask_index = kg_mask_index.to(device)
                         et_seq_tokens = et_seq_tokens.to(device)
-                    predict[gt_ent] = model(kg_seq_tokens, kg_mask_index, et_seq_tokens, bs).cpu().half()
+                    predict[gt_ent] = model(kg_seq_tokens, kg_mask_index, et_seq_tokens, et_mask_index, ent_seq_tokens, bs, mode='eval').cpu().half()
                     # if use_cuda:
                     #     sample_et_content = sample_et_content.cuda()
                     #     sample_kg_content = sample_kg_content.cuda()
@@ -258,12 +310,12 @@ def main(args):
         for sample_et_content, sample_kg_content, gt_ent in test_dataloader:
             bs = sample_kg_content.shape[0]
             kg_seq_tokens, kg_mask_index = tokenize_with_mask(sample_kg_content)
-            et_seq_tokens = tokenize_known_type(sample_et_content)
+            et_seq_tokens, et_mask_index = tokenize_known_type(sample_et_content)
             if use_cuda:
                 kg_seq_tokens = kg_seq_tokens.to(device)
                 #   kg_mask_index = kg_mask_index.to(device)
                 et_seq_tokens = et_seq_tokens.to(device)
-            predict[gt_ent] = model(kg_seq_tokens, kg_mask_index, et_seq_tokens, bs).cpu().half()
+            predict[gt_ent] = model(kg_seq_tokens, kg_mask_index, et_seq_tokens, et_mask_index, ent_seq_tokens, bs, mode='eval').cpu().half()
             # if use_cuda:
             #     sample_et_content = sample_et_content.cuda()
             #     sample_kg_content = sample_kg_content.cuda()
@@ -319,7 +371,8 @@ def get_params():
     parser.add_argument('--tt_ablation', type=str, default='all', choices=['all', 'triple', 'type'],
                         help='ablation choice')
     parser.add_argument('--log_name', type=str, default='log')
-
+    parser.add_argument('--semantic', type=str, default='hybrid')
+    parser.add_argument('--nquery', type=int, default=5)
     args, _ = parser.parse_known_args()
     print(args)
     return args
