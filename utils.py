@@ -100,7 +100,19 @@ def load_type_instances(args, file_name, e2id, t2id):
             eid = e2id[e]
             tid = t2id[t]
             t2e[tid].append(eid)
+    t2e = dict(t2e)
+    for k, v in t2e.items():
+        v = np.array(v)
+        t2e[k] = v
     return dict(t2e)
+
+
+def sample_type_instances(t2e, known_types, num_of_instances=10, mode='train'):
+    result = []
+    known_types = known_types.tolist()
+    for kt in known_types:
+        instance_ents = t2e[kt]
+
 
 
 def load_type_labels(paths, e2id, t2id):

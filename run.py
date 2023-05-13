@@ -137,22 +137,34 @@ def main(args):
         known_types = sample_et_content[:, :, 2]
         known_types = known_types.reshape(curr_batch_size * num_known_types_sampled)
         known_types = known_types - num_entities
-        known_type_instances = t2ent[known_types]
-
-
-        known_types_context = np.empty(curr_batch_size * num_known_types_sampled, dtype=object)
-        if known_types.shape[0] == 1:
-            known_type = known_types[0]
-            et_sequence = ['[CLS] [SEP] [MASK] [SEP] has type [SEP] ' + t2desc[int(known_type)] + ' [SEP]']
+        if curr_batch_size == 1:
+            #   test mode
+            et_sequence = []
+            for kt in known_types:
+                instance_ents = t2ent[kt]
+                if len(instance_ents) > 50:
+                    #   need to sample
+                    instance_ents = np.random.choice(instance_ents, 50)
+                instance_ent_labels = e2label[instance_ents]
+                type_desc = t2desc[kt]
+                instance_ent_labels = ' [SEP] '.join(instance_ent_labels)
+                curr_et_sequence = '[CLS] ' + type_desc + ' [SEP] ' + instance_ent_labels + ' [SEP]'
+                et_sequence.append(curr_et_sequence)
         else:
-            start_arr = np.array(['[CLS] [SEP] [MASK] [SEP] has type [SEP] '], dtype=str).repeat(curr_batch_size * num_known_types_sampled)
-            end_arr = np.array([' [SEP]'], dtype=str).repeat(curr_batch_size * num_known_types_sampled)
-            known_types_context[known_types >= 0] = t2desc[np.array(known_types)]
-            et_sequence = start_arr + known_types_context + end_arr
-            et_sequence = et_sequence.tolist()
+            #   training mode
+            et_sequence = []
+            for kt in known_types.tolist():
+                instance_ents = t2ent[kt]
+                if len(instance_ents) > 10:
+                    #   need to sample
+                    instance_ents = np.random.choice(instance_ents, 10)
+                instance_ent_labels = e2label[instance_ents]
+                type_desc = t2desc[kt]
+                instance_ent_labels = ' [SEP] '.join(instance_ent_labels)
+                curr_et_sequence = '[CLS] ' + type_desc + ' [SEP] ' + instance_ent_labels + ' [SEP]'
+                et_sequence.append(curr_et_sequence)
         et_seq_tokens = tokenizer(et_sequence, add_special_tokens=False, padding=True, return_tensors='pt')
-        et_mask_index = (et_seq_tokens.input_ids == tokenizer.mask_token_id).nonzero(as_tuple=True)
-        return et_seq_tokens, et_mask_index
+        return et_seq_tokens, None
 
     def tokenize_target_entity(entities):
         curr_batch_size = entities.shape[0]

@@ -68,9 +68,11 @@ class MMET(nn.Module):
         #   kg_pooled_output = kg_outputs.pooler_output
 
         et_outputs = self.lm_encoder(**et_seq_tokens)
-        et_masked_token = et_outputs['last_hidden_state'][et_mask_index[0], et_mask_index[1]]
-        et_pooled_output = self.lm_pooler(et_masked_token)
+        #   et_masked_token = et_outputs['last_hidden_state'][et_mask_index[0], et_mask_index[1]]
+        #   et_pooled_output = self.lm_pooler(et_masked_token)
         #   et_pooled_output = et_outputs.pooler_output
+        et_cls_outputs = et_outputs['last_hidden_state'][:, 0]
+        et_pooled_output = self.lm_pooler(et_cls_outputs)
 
         num_ent_neighbors = int(kg_pooled_output.shape[0] / bs)
         kg_pooled_output = kg_pooled_output.reshape(bs, num_ent_neighbors, -1)
