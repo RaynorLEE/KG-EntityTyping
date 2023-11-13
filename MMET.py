@@ -78,70 +78,70 @@ class MMET(nn.Module):
         return predict
 
 
-class MMETLayer(nn.Module):
-    def __init__(self, args, embedding_dim, num_types, temperature):
-        super(MMETLayer, self).__init__()
-        self.embedding_dim = embedding_dim
-        self.num_types = num_types
-        self.fc = nn.Linear(embedding_dim, num_types)
-        self.temperature = temperature
-        self.device = torch.device('cuda')
-
-        self.trm_nlayer = args['trm_nlayer']
-        self.trm_nhead = args['trm_nhead']
-        self.trm_hidden_dropout = args['trm_hidden_dropout']
-        self.trm_attn_dropout = args['trm_attn_dropout']
-        self.trm_ff_dim = args['trm_ff_dim']
-        self.global_pos_size = args['global_pos_size']
-        self.embedding_range = 10 / self.embedding_dim
-
-        self.global_cls = nn.Parameter(torch.Tensor(1, self.embedding_dim))
-        torch.nn.init.normal_(self.global_cls, std=self.embedding_range)
-        self.pos_embeds = nn.Embedding(self.global_pos_size, self.embedding_dim)
-        torch.nn.init.normal_(self.pos_embeds.weight, std=self.embedding_range)
-        self.layer_norm = BertLayerNorm(self.embedding_dim, eps=1e-12)
-
-        self.transformer_encoder = trm.Encoder(
-            lambda: trm.EncoderLayer(
-                self.embedding_dim,
-                trm.MultiHeadedAttentionWithRelations(
-                    self.trm_nhead,
-                    self.embedding_dim,
-                    self.trm_attn_dropout),
-                trm.PositionwiseFeedForward(
-                    self.embedding_dim,
-                    self.trm_ff_dim,
-                    self.trm_hidden_dropout),
-                num_relation_kinds=0,
-                dropout=self.trm_hidden_dropout),
-            self.trm_nlayer,
-            self.embedding_range,
-            tie_layers=False)
-
-    def convert_mask_trm(self, attention_mask):
-        attention_mask = attention_mask.unsqueeze(1).repeat(1, attention_mask.size(1), 1)
-        return attention_mask
-
-    def forward(self, local_embedding, global_embedding):
-        local_msg = torch.relu(local_embedding)
-        predict1 = self.fc(local_msg)
-
-        batch_size, neighbor_size, emb_size = local_embedding.size()
-        attention_mask = torch.ones(batch_size, neighbor_size + 1).bool().to(self.device)
-        second_local = torch.cat([self.global_cls.expand(batch_size, 1, emb_size), local_embedding], dim=1)
-        pos = self.pos_embeds(torch.arange(0, 3).to(self.device))
-        second_local[:, 0] = second_local[:, 0] + pos[0].unsqueeze(0)
-        second_local[:, 1] = second_local[:, 1] + pos[1].unsqueeze(0)
-        second_local[:, 2:] = second_local[:, 2:] + pos[2].view(1, 1, -1)
-        second_local = self.layer_norm(second_local)
-        second_local = self.transformer_encoder(second_local, None, self.convert_mask_trm(attention_mask))
-        second_local = second_local[-1][:, :2][:, 0].unsqueeze(1)
-        predict2 = self.fc(torch.relu(second_local))
-        predict3 = self.fc(torch.relu(global_embedding))
-
-        predict = torch.cat([predict1, predict2, predict3], dim=1)
-        weight = torch.softmax(self.temperature * predict, dim=1)
-        predict = (predict * weight.detach()).sum(1).sigmoid()
-
-        return predict
+# class MMETLayer(nn.Module):
+#     def __init__(self, args, embedding_dim, num_types, temperature):
+#         super(MMETLayer, self).__init__()
+#         self.embedding_dim = embedding_dim
+#         self.num_types = num_types
+#         self.fc = nn.Linear(embedding_dim, num_types)
+#         self.temperature = temperature
+#         self.device = torch.device('cuda')
+#
+#         self.trm_nlayer = args['trm_nlayer']
+#         self.trm_nhead = args['trm_nhead']
+#         self.trm_hidden_dropout = args['trm_hidden_dropout']
+#         self.trm_attn_dropout = args['trm_attn_dropout']
+#         self.trm_ff_dim = args['trm_ff_dim']
+#         self.global_pos_size = args['global_pos_size']
+#         self.embedding_range = 10 / self.embedding_dim
+#
+#         self.global_cls = nn.Parameter(torch.Tensor(1, self.embedding_dim))
+#         torch.nn.init.normal_(self.global_cls, std=self.embedding_range)
+#         self.pos_embeds = nn.Embedding(self.global_pos_size, self.embedding_dim)
+#         torch.nn.init.normal_(self.pos_embeds.weight, std=self.embedding_range)
+#         self.layer_norm = BertLayerNorm(self.embedding_dim, eps=1e-12)
+#
+#         self.transformer_encoder = trm.Encoder(
+#             lambda: trm.EncoderLayer(
+#                 self.embedding_dim,
+#                 trm.MultiHeadedAttentionWithRelations(
+#                     self.trm_nhead,
+#                     self.embedding_dim,
+#                     self.trm_attn_dropout),
+#                 trm.PositionwiseFeedForward(
+#                     self.embedding_dim,
+#                     self.trm_ff_dim,
+#                     self.trm_hidden_dropout),
+#                 num_relation_kinds=0,
+#                 dropout=self.trm_hidden_dropout),
+#             self.trm_nlayer,
+#             self.embedding_range,
+#             tie_layers=False)
+#
+#     def convert_mask_trm(self, attention_mask):
+#         attention_mask = attention_mask.unsqueeze(1).repeat(1, attention_mask.size(1), 1)
+#         return attention_mask
+#
+#     def forward(self, local_embedding, global_embedding):
+#         local_msg = torch.relu(local_embedding)
+#         predict1 = self.fc(local_msg)
+#
+#         batch_size, neighbor_size, emb_size = local_embedding.size()
+#         attention_mask = torch.ones(batch_size, neighbor_size + 1).bool().to(self.device)
+#         second_local = torch.cat([self.global_cls.expand(batch_size, 1, emb_size), local_embedding], dim=1)
+#         pos = self.pos_embeds(torch.arange(0, 3).to(self.device))
+#         second_local[:, 0] = second_local[:, 0] + pos[0].unsqueeze(0)
+#         second_local[:, 1] = second_local[:, 1] + pos[1].unsqueeze(0)
+#         second_local[:, 2:] = second_local[:, 2:] + pos[2].view(1, 1, -1)
+#         second_local = self.layer_norm(second_local)
+#         second_local = self.transformer_encoder(second_local, None, self.convert_mask_trm(attention_mask))
+#         second_local = second_local[-1][:, :2][:, 0].unsqueeze(1)
+#         predict2 = self.fc(torch.relu(second_local))
+#         predict3 = self.fc(torch.relu(global_embedding))
+#
+#         predict = torch.cat([predict1, predict2, predict3], dim=1)
+#         weight = torch.softmax(self.temperature * predict, dim=1)
+#         predict = (predict * weight.detach()).sum(1).sigmoid()
+#
+#         return predict
 
