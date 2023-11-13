@@ -4,6 +4,7 @@ import trm
 
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
+from MHA import MHA
 from transformers import BertConfig, BertModel
 
 
@@ -36,31 +37,44 @@ class MMET(nn.Module):
         self.num_ent_neighbors = args['sample_kg_size']
         self.num_et_neighbors = args['sample_et_size']
         self.temperature = args['temperature']
+        self.mha = MHA(5, 1.0)
         #self.layer = MMETLayer(args, self.embedding_dim, num_types, args['temperature'])
 
-    def forward(self, kg_seq_tokens, kg_mask_index, et_seq_tokens, bs):
+    def forward(self, kg_seq_tokens, kg_mask_index, et_seq_tokens, et_mask_index, bs):
         # prediction = self.lm_encoder(kg_seq_tokens)['last_hidden_state'][]
         #   ATTENTION: The batch size CANNOT be larger than 48 since RTX3090 does not have enough GPU memory for larger
         #   batch size
         kg_outputs = self.lm_encoder(**kg_seq_tokens)
         kg_masked_token = kg_outputs['last_hidden_state'][kg_mask_index[0], kg_mask_index[1]]
         kg_pooled_output = self.lm_pooler(kg_masked_token)
-
         #   kg_pooled_output = kg_outputs.pooler_output
+
         et_outputs = self.lm_encoder(**et_seq_tokens)
-        et_pooled_output = et_outputs.pooler_output
+        et_masked_token = et_outputs['last_hidden_state'][et_mask_index[0], et_mask_index[1]]
+        et_pooled_output = self.lm_pooler(et_masked_token)
+        #   et_pooled_output = et_outputs.pooler_output
 
+        num_ent_neighbors = int(kg_pooled_output.shape[0] / bs)
+        kg_pooled_output = kg_pooled_output.reshape(bs, num_ent_neighbors, -1)
         kg_predict = self.decoder(kg_pooled_output)
-        num_ent_neighbors = int(kg_predict.shape[0] / bs)
-        kg_predict = kg_predict.reshape(bs, num_ent_neighbors, -1)
+        # num_ent_neighbors = int(kg_predict.shape[0] / bs)
+        # kg_predict = kg_predict.reshape(bs, num_ent_neighbors, -1)
 
+        num_et_neighbors = int(et_pooled_output.shape[0] / bs)
+        et_pooled_output = et_pooled_output.reshape(bs, num_et_neighbors, -1)
         et_predict = self.decoder(et_pooled_output)
-        num_et_neighbors = int(et_predict.shape[0] / bs)
-        et_predict = et_predict.reshape(bs, num_et_neighbors, -1)
+        # num_et_neighbors = int(et_predict.shape[0] / bs)
+        # et_predict = et_predict.reshape(bs, num_et_neighbors, -1)
 
-        predict = torch.cat([kg_predict, et_predict], dim=1)
-        weight = torch.softmax(self.temperature * predict, dim=1)
-        predict = (predict * weight.detach()).sum(1).sigmoid()
+        all_pooled_output = torch.cat([kg_pooled_output, et_pooled_output], dim=1)
+        all_pooled_output = all_pooled_output.mean(dim=1, keepdim=True)
+        global_predict = self.decoder(all_pooled_output)
+
+        #   predict = torch.cat([kg_predict, et_predict], dim=1)
+        predict = torch.cat([kg_predict, et_predict, global_predict], dim=1)
+        #   weight = torch.softmax(self.temperature * predict, dim=1)
+        #   predict = (predict * weight.detach()).sum(1).sigmoid()
+        predict = self.mha(predict).sigmoid()
         return predict
 
 

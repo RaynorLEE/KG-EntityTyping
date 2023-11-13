@@ -32,7 +32,7 @@ def read_id(path):
             tmp[e] = int(t)
     return tmp
 
-def read_entity_wiki(path, e2id):
+def read_entity_wiki(path, e2id, mode='hybrid'):
     json_file = open(path)
     entity_wiki = json.load(json_file)
     entity_descriptions = []
@@ -41,8 +41,17 @@ def read_entity_wiki(path, e2id):
     for e, eid in e2id.items():
         id2e[eid] = e
     for eid in range(len(id2e)):
-        if entity_wiki[id2e[eid]]['description'] is not None:
-            entity_descriptions.append(entity_wiki[id2e[eid]]['description'])
+        if mode == 'hybrid':
+            if entity_wiki[id2e[eid]]['description'] is not None and entity_wiki[id2e[eid]]['description'] != '':
+                entity_descriptions.append(
+                    entity_wiki[id2e[eid]]['label'] + ', ' + entity_wiki[id2e[eid]]['description'])
+            else:
+                entity_descriptions.append(entity_wiki[id2e[eid]]['label'])
+        elif mode == 'desc':
+            if entity_wiki[id2e[eid]]['description'] is not None and entity_wiki[id2e[eid]]['description'] != '':
+                entity_descriptions.append(entity_wiki[id2e[eid]]['description'])
+            else:
+                entity_descriptions.append(entity_wiki[id2e[eid]]['label'])
         else:
             entity_descriptions.append(entity_wiki[id2e[eid]]['label'])
         entity_text.append(entity_wiki[id2e[eid]]['label'])

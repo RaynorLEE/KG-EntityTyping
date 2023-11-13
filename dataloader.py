@@ -17,8 +17,14 @@ class ETDataset(Dataset):
         self.c2id = c2id
         self.sample_et_size = args["sample_et_size"]
         self.sample_kg_size = args["sample_kg_size"]
+        self.sample_2hop_et_size = args["sample_2hop_et_size"]
+        self.sample_2hop_kg_size = args["sample_2hop_kg_size"]
         self.data = self.load_dataset()
         self.data_flag = data_flag
+        self.eid2index = dict()
+        for i in range(len(self.data)):
+            eid = self.data[i][2]
+            self.eid2index[eid] = i
 
     def load_dataset(self):
         data_name_path = self.args["data_dir"] + '/' + self.args["dataset"] + '/' + self.data_name
@@ -97,8 +103,8 @@ class ETDataset(Dataset):
 
         if self.data_flag == 'test':
             # for test, we need all neighbor information
-            # Nevertheless, using all neighbor information directly needs a considerable GPU memory which is not
-            # supported by mainstream GPUs. Here we limit the max. number of kg neighbors to 200 and max. num of et
+            # Nevertheless, using all neighbor information directly needs a considerable amount of GPU memory which is
+            # not supported by mainstream GPUs. Here we limit the max. number of kg neighbors to 200 and max. num of et
             # neighbors to 100.
             if len(all_kg) > 200:
                 sampled_kg_index = np.random.choice(range(0, len(kg_content)), size=200, replace=False)
@@ -114,8 +120,65 @@ class ETDataset(Dataset):
         else:
             return sample_et, sample_kg, gt_ent
 
+
+    def __get_2hop_item__(self, index):
+        et_content = self.data[index][0]
+        kg_content = self.data[index][1]
+        ent = self.data[index][2]
+
+        single_et_np_list = []
+        if self.sample_et_size != 1:
+            sampled_index = np.random.choice(range(0, len(et_content)), size=self.sample_2hop_et_size,
+                                             replace=len(range(0, len(et_content))) < self.sample_2hop_et_size)
+            for i in sampled_index:
+                single_et_np_list.append(et_content[i])
+        else:
+            single_et_np_list.append(et_content[0])
+
+        single_kg_np_list = []
+        if self.sample_kg_size != 1:
+            sampled_index = np.random.choice(range(0, len(kg_content)), size=self.sample_2hop_kg_size,
+                                             replace=len(range(0, len(kg_content))) < self.sample_2hop_kg_size)
+            for i in sampled_index:
+                single_kg_np_list.append(kg_content[i])
+        else:
+            single_kg_np_list.append(kg_content[0])
+
+        all_et = et_content
+        all_kg = kg_content
+        sample_et = single_et_np_list
+        sample_kg = single_kg_np_list
+
+        gt_ent = ent
+
+        return sample_et, sample_kg, gt_ent
+
+
     def __len__(self):
         return len(self.data)
+
+    def get_2nd_hop_items(self, neighbor_eids):
+        batch = []
+        mask = []
+        for i in range(len(neighbor_eids)):
+            neighbor_eid = neighbor_eids[i]
+            if neighbor_eid not in self.eid2index:
+                #   這部分entity沒有對應的相鄰節點資料
+                #   需要特別處理
+                #   這裏隨便擺一個節點上去，最後mask掉不過梯度就好
+                data_index = 0
+                sample = self.__get_2hop_item__(data_index)
+                #   sample[2] = neighbor_eid    # tuple不支持修改。
+                batch.append(sample)
+                mask.append(0)
+            else:
+                data_index = self.eid2index[neighbor_eid]
+                sample = self.__get_2hop_item__(data_index)
+                batch.append(sample)
+                mask.append(1)
+        second_hop_et_content, second_hop_kg_content, one_hop_neighbor_ent = self.collate_fn(batch)
+        mask = torch.LongTensor(mask)
+        return second_hop_et_content, second_hop_kg_content, one_hop_neighbor_ent, mask
 
     @staticmethod
     def collate_fn(batch):
