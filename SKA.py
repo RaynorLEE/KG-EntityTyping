@@ -8,9 +8,9 @@ import trm
 from MHA import MHA
 
 
-class LMET(nn.Module):
+class SKA(nn.Module):
     def __init__(self, args, num_entities, num_rels, num_types, pretrained_embs, curvature=1):
-        super(LMET, self).__init__()
+        super(SKA, self).__init__()
         self.num_entities = num_entities
         self.num_rels = num_rels
         self.num_types = num_types
@@ -24,7 +24,20 @@ class LMET(nn.Module):
         self.pretrained_ent_embs = pretrained_embs[0]
         self.pretrained_rel_embs = pretrained_embs[1]
         self.pretrained_type_embs = pretrained_embs[2]
-        self.mlp_t = MLP(768, self.emb_dim)
+        if 'bert-base-uncased' == args['plm']:
+            self.embedding_dim = 768
+        elif 'bert-large-uncased' == args['plm']:
+            self.embedding_dim = 1024
+        elif 'roberta-base' == args['plm']:
+            self.embedding_dim = 768
+        elif 'roberta-large' == args['plm']:
+            self.embedding_dim = 1024
+        elif 'gpt2' == args['plm']:
+            self.embedding_dim = 768
+        else:
+            self.embedding_dim = 768
+
+        self.mlp_t = MLP(self.embedding_dim, self.emb_dim)
         self.mlp_s = MLP(self.emb_dim, self.emb_dim)
         # self.kg_decoder = nn.Linear(self.emb_dim, self.num_types)
         # self.et_decoder = nn.Linear(self.emb_dim, self.num_types)
