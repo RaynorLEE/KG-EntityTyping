@@ -33,7 +33,7 @@ def read_id(path):
     return tmp
 
 def read_entity_wiki(path, e2id, mode='hybrid'):
-    json_file = open(path)
+    json_file = open(path, encoding='utf-8')
     entity_wiki = json.load(json_file)
     entity_descriptions = []
     entity_text = []

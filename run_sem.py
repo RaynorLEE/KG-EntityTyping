@@ -249,7 +249,6 @@ def main(args):
                 torch.save(model.state_dict(), os.path.join(save_path, 'best_model.pkl'))
                 max_valid_mrr = valid_mrr
             if test_mrr < max_test_mrr:
-                logging.debug('early stop')
                 pass
             else:
                 torch.save(model.state_dict(), os.path.join(save_path, 'test_best_model.pkl'))

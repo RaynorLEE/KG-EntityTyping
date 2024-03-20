@@ -1,15 +1,15 @@
 import torch
 import torch.nn as nn
 
-from transformers import BertConfig, BertModel
+from transformers import AutoConfig, AutoModel
 
 device = torch.device('cuda:0')
 
 class PLM(nn.Module):
     def __init__(self, plm='bert-base-uncased', pretrained_model=None):
         super(PLM, self).__init__()
-        self.lm_config = BertConfig.from_pretrained('bert-base-uncased')
-        self.lm_encoder = BertModel.from_pretrained('bert-base-uncased')
+        self.lm_config = AutoConfig.from_pretrained(plm)
+        self.lm_encoder = AutoModel.from_pretrained(plm)
         self.use_pretrained_model = False
         if pretrained_model is not None:
             self.use_pretrained_model = True

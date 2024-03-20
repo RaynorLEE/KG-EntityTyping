@@ -82,7 +82,21 @@ def main(args):
     #   model = MMET(args, num_entities, num_rels, num_types)
     model = SKA(args, num_entities, num_rels, num_types, [pretrained_ent_embs, pretrained_rel_embs, pretrained_type_embs])
 
+    if args['plm'] == 'GPT2':
+        cls_token = '<cls>'
+        mask_token = '<mask>'
+        sep_token = '<sep>'
+        pad_token = '<pad>'
+        tokenizer.add_special_tokens({'cls_token': cls_token,
+                                      'mask_token': mask_token,
+                                      'sep_token': sep_token,
+                                      'pad_token': pad_token})
+
     def tokenize_with_mask(sample_kg_content):
+        cls_token = tokenizer.cls_token
+        mask_token = tokenizer.mask_token
+        sep_token = tokenizer.sep_token
+
         curr_batch_size = sample_kg_content.shape[0]
         num_neighbors_sampled = sample_kg_content.shape[1]
         #   load text / descriptions of entities / relations from sample_kg_content
@@ -100,21 +114,23 @@ def main(args):
             rel = rels[0]
             tail = tails[0]
             if rel < num_rels:
-                kg_sequence = ['[CLS] ' + '[MASK]' + ' [SEP] ' + r2text[int(rel) % num_rels] + ' [SEP] ' + e2desc[int(tail)] + ' [SEP]']
+                kg_sequence = [cls_token + ' ' + mask_token + ' ' + sep_token + ' ' + r2text[
+                    int(rel) % num_rels] + ' ' + sep_token + ' ' + e2desc[int(tail)] + ' ' + sep_token]
             else:
-                kg_sequence = ['[CLS] ' + e2desc[int(tail)] + ' [SEP] ' + r2text[int(rel) % num_rels] + ' [SEP] ' + '[MASK]' + ' [SEP]']
+                kg_sequence = [cls_token + ' ' + e2desc[int(tail)] + ' ' + sep_token + ' ' + r2text[
+                    int(rel) % num_rels] + ' ' + sep_token + ' ' + mask_token + ' ' + sep_token]
         else:
             #   if rel < num_rels, then mask head, and keep rel and tail
-            head_context[rels < num_rels] = '[MASK]'
+            head_context[rels < num_rels] = mask_token
             tail_context[rels < num_rels] = e2desc[np.array(tails)][rels < num_rels]
             rel_context = r2text[np.array(rels) % num_rels]
             #   if rel >= num_rels, then mask tail, keep rel and move tail entity to head
             head_context[rels >= num_rels] = e2desc[np.array(tails)][rels >= num_rels]
-            tail_context[rels >= num_rels] = '[MASK]'
+            tail_context[rels >= num_rels] = mask_token
             #   concatenate heads, rels, tails with [CLS] token and [SEP] separator
-            cls_arr = np.array(['[CLS] '], dtype=str).repeat(curr_batch_size * num_neighbors_sampled)
-            sep_arr = np.array([' [SEP] '], dtype=str).repeat(curr_batch_size * num_neighbors_sampled)
-            last_sep_arr = np.array([' [SEP]'], dtype=str).repeat(curr_batch_size * num_neighbors_sampled)
+            cls_arr = np.array([cls_token + ' '], dtype=str).repeat(curr_batch_size * num_neighbors_sampled)
+            sep_arr = np.array([' ' + sep_token + ' '], dtype=str).repeat(curr_batch_size * num_neighbors_sampled)
+            last_sep_arr = np.array([' ' + sep_token], dtype=str).repeat(curr_batch_size * num_neighbors_sampled)
             kg_sequence = cls_arr + head_context + sep_arr + rel_context + sep_arr + tail_context + last_sep_arr
             #   tokenize sample_kg_content
             kg_sequence = kg_sequence.tolist()
@@ -126,6 +142,12 @@ def main(args):
         return kg_seq_tokens, kg_mask_index
 
     def tokenize_known_type(sample_et_content):
+        cls_token = tokenizer.cls_token
+        mask_token = tokenizer.mask_token
+        sep_token = tokenizer.sep_token
+        start_str = cls_token + ' ' + mask_token + ' has type ' + sep_token + ' '
+        end_str = ' ' + sep_token
+
         curr_batch_size = sample_et_content.shape[0]
         num_known_types_sampled = sample_et_content.shape[1]
         #   load hierarchical descriptions of known types of an entity from sample_et_content
@@ -135,10 +157,10 @@ def main(args):
         known_types_context = np.empty(curr_batch_size * num_known_types_sampled, dtype=object)
         if known_types.shape[0] == 1:
             known_type = known_types[0]
-            et_sequence = ['[CLS] [SEP] [MASK] [SEP] has type [SEP] ' + t2desc[int(known_type)] + ' [SEP]']
+            et_sequence = [start_str + t2desc[int(known_type)] + end_str]
         else:
-            start_arr = np.array(['[CLS] [SEP] [MASK] [SEP] has type [SEP] '], dtype=str).repeat(curr_batch_size * num_known_types_sampled)
-            end_arr = np.array([' [SEP]'], dtype=str).repeat(curr_batch_size * num_known_types_sampled)
+            start_arr = np.array([start_str], dtype=str).repeat(curr_batch_size * num_known_types_sampled)
+            end_arr = np.array([end_str], dtype=str).repeat(curr_batch_size * num_known_types_sampled)
             known_types_context[known_types >= 0] = t2desc[np.array(known_types)]
             et_sequence = start_arr + known_types_context + end_arr
             et_sequence = et_sequence.tolist()
@@ -478,7 +500,6 @@ def main(args):
                 max_valid_mrr = valid_mrr
             #   save best model
             if test_mrr < max_test_mrr:
-                logging.debug('early stop')
                 pass
             else:
                 torch.save(model.state_dict(), os.path.join(save_path, 'test_best_model.pkl'))

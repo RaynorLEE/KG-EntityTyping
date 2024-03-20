@@ -175,6 +175,7 @@ class SKA(nn.Module):
             two_hop_rel_structural_embs = self.relation_embs(two_hop_rel % self.num_rels)
             two_hop_rel = two_hop_rel.cpu()
             two_hop_rel_textual_embs = torch.index_select(self.pretrained_rel_embs, 0, two_hop_rel % self.num_rels)
+
             two_hop_rel_textual_embs = two_hop_rel_textual_embs.to(two_hop_rel_structural_embs.device)
             two_hop_rel = two_hop_rel.to(two_hop_rel_structural_embs.device)
             two_hop_rel_structural_embs = self.mlp_s(two_hop_rel_structural_embs)
