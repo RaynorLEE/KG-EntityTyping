@@ -20,4 +20,4 @@
 If you find this code useful, please consider citing the following paper.
 
 ## Acknowledgement
-We refer to the code of [TET](https://github.com/zhiweihu1103/ET-TET). Thanks for their contributions.
+We refer to the code of [TET](https://github.com/zhiweihu1103/ET-TET) and [MiNer](https://github.com/jinzhuoran/MiNer/). Thanks for their contributions.
