@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import trm
 
 from torch.nn import TransformerEncoder, TransformerEncoderLayer
 
