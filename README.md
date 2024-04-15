@@ -14,7 +14,7 @@
 * Please see commands.sh file
 
 
-* **Note:** Before running, you need to create the ./logs folder first.
+* **Note:** Before running, you need to create the ./save folder first.
 
 ## Citation
 If you find this code useful, please consider citing the following paper.
