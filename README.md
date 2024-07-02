@@ -1,5 +1,5 @@
 # The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing (SSET)
-#### This repo provides the source code & data of our paper: "The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing" that will be published in the proceedings of the 2024 Annual Conference of the North American Chapter of the Association for Computational Linguistics (NAACL2024 main)
+#### This repo provides the source code & data of our paper: "The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing" published in the proceedings of the 2024 Annual Conference of the North American Chapter of the Association for Computational Linguistics (NAACL2024 main)
 
 ## Dependencies
 * python=3.10
@@ -18,15 +18,23 @@
 
 ## Citation
 If you find this code useful, please consider citing the following paper.
-We will alter the citation information once the final version of this paper is released by the conference. 
 ```
-@misc{li2024integration,
-      title={The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing}, 
-      author={Muzhi Li and Minda Hu and Irwin King and Ho-fung Leung},
-      year={2024},
-      eprint={2404.08313},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL}
+@inproceedings{li-etal-2024-integration,
+    title = "The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing",
+    author = "Li, Muzhi  and
+      Hu, Minda  and
+      King, Irwin  and
+      Leung, Ho-fung",
+    editor = "Duh, Kevin  and
+      Gomez, Helena  and
+      Bethard, Steven",
+    booktitle = "Proceedings of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers)",
+    month = jun,
+    year = "2024",
+    address = "Mexico City, Mexico",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2024.naacl-long.369",
+    pages = "6625--6638",
 }
 ```
 
