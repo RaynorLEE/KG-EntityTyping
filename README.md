@@ -1,5 +1,5 @@
 # The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing (SSET)
-#### This repo provides the source code & data of our paper: "The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing" published in the proceedings of the 2024 Annual Conference of the North American Chapter of the Association for Computational Linguistics (NAACL2024 main)
+#### This repo provides the source code & data of our paper: "The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing" published in the proceedings of the 2024 Annual Conference of the North American Chapter of the Association for Computational Linguistics (NAACL2024 main, Oral)
 
 ## Dependencies
 * python=3.10
