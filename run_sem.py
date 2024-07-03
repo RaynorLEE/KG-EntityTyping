@@ -235,10 +235,6 @@ def main(args):
                         #   kg_mask_index = kg_mask_index.to(device)
                         et_seq_tokens = et_seq_tokens.to(device)
                     predict[gt_ent] = model(kg_seq_tokens, kg_mask_index, et_seq_tokens, et_mask_index, bs).cpu().half()
-                    # if use_cuda:
-                    #     sample_et_content = sample_et_content.cuda()
-                    #     sample_kg_content = sample_kg_content.cuda()
-                    # predict[gt_ent] = model(sample_et_content, sample_kg_content, sample_ent2pair).cpu().half()
                 test_mrr = evaluate(os.path.join(data_path, 'ET_test.txt'), predict, test_type_label, e2id, t2id)
 
             model.train()
