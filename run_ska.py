@@ -3,7 +3,6 @@ import argparse
 import torch.nn
 
 from utils import *
-#   from TET import TET
 from SEM import SEM
 from SKA import SKA
 from PLM import PLM, pretrain_representations
@@ -265,12 +264,6 @@ def main(args):
                                      two_hop_calc_mask)
             else:
                 type_predict = model(sample_et_content, sample_kg_content, )
-
-            # if use_cuda:
-            #     sample_et_content = sample_et_content.cuda()
-            #     sample_kg_content = sample_kg_content.cuda()
-            #     type_label = type_label.cuda()
-            # type_predict = model(sample_et_content, sample_kg_content, sample_ent2pair)
 
             if args['loss'] == 'BCE':
                 bce_loss = torch.nn.BCELoss()
