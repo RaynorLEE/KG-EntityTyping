@@ -1,6 +1,5 @@
 import argparse
 from utils import *
-# from TET import TET
 from SEM import SEM
 from dataloader import SEMdataset
 from torch.utils.data import DataLoader
