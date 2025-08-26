@@ -1,6 +1,8 @@
 # The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing (SSET)
 #### This repo provides the source code & data of our paper: "The Integration of Semantic and Structural Knowledge in Knowledge Graph Entity Typing" published in the proceedings of the 2024 Annual Conference of the North American Chapter of the Association for Computational Linguistics (NAACL2024 main, Oral)
 
+![SSET](SSET.png)
+
 ## Dependencies
 * python=3.10
 * PyTorch 1.13.1+cu117
@@ -40,3 +42,4 @@ If you find this code useful, please consider citing the following paper.
 
 ## Acknowledgement
 We refer to the code of [TET](https://github.com/zhiweihu1103/ET-TET) and [MiNer](https://github.com/jinzhuoran/MiNer/). Thanks for their contributions.
+
